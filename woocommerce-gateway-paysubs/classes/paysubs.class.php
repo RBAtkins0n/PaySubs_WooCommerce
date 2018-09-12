@@ -424,7 +424,7 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
             $_POST = stripslashes_deep( $_POST );
 
             if ( $this->perform_response_callback( $_POST ) ) {
-                do_action( 'valid-paysubs-response', sanitize_text_field( $_POST['p2'] ) );
+                do_action( 'valid-paysubs-response', sanitize_text_field( $_POST['m_3'] ) );
             }
         } else {
             wp_redirect( get_permalink( wc_get_page_id( 'myaccount' ) ) );
@@ -556,9 +556,12 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
      *
      * @since 1.0.0
      */
-    public function successful_request( $order_id = 0 )
+    public function successful_request( $m_3 = 0 )
     {
         global $woocommerce;
+
+        $order_id = explode( '-', $m_3 );
+        $order_id = $order_id[0];
 
         if ( !$order_id ) {
             return false;

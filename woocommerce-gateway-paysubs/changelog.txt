@@ -1,5 +1,8 @@
 *** PaySubs Changelog ***
 
+2018.10.12 - version 1.0.1
+* Fix order key lost in response on thank you page.
+
 2018.06.29 - version 1.0.0
 * Reversion as PaySubs 1.0.0
 * Check if jQuery.select2 is present before calling
