@@ -1,5 +1,9 @@
 *** PaySubs Changelog ***
 
+2018.11.30 - version 1.0.2
+* Fix empty POST resulting in order pending, default to 'failed'
+* Fix Log function not working
+
 2018.10.12 - version 1.0.1
 * Fix order key lost in response on thank you page.
 

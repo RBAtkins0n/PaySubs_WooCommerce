@@ -322,12 +322,18 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
     {
         global $woocommerce;
 
+        if(!session_id()) {
+            session_start();
+        }
+
         $amount       = ( WC()->version < '2.7.0' ) ? $order->order_total : $order->get_total();
         $currency     = get_option( 'woocommerce_currency' );
         $order_id     = ( WC()->version < '2.7.0' ) ? $order->id : $order->get_id();
+        $_SESSION['orderID'] = $order_id;
         $order_number = trim( str_replace( '#', '', $order->get_order_number() ) );
         $order_email  = ( WC()->version < '2.7.0' ) ? $order->billing_email : $order->get_billing_email();
         $order_key    = ( WC()->version < '2.7.0' ) ? $order->order_key : $order->get_order_key();
+        $_SESSION['order_key'] = $order_key;
 
         if ( $this->has_previously_failed( $order ) ) {
             if ( $post_count = get_post_meta( $order_id, '_woocommerce_gateway_paysubs_failed_attempts', true ) ) {
@@ -427,7 +433,20 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
                 do_action( 'valid-paysubs-response', sanitize_text_field( $_POST['m_3'] ) );
             }
         } else {
-            wp_redirect( get_permalink( wc_get_page_id( 'myaccount' ) ) );
+            if(!session_id()) {
+                session_start();
+            }
+            // check transaction status
+            $orderID = $_SESSION['orderID'];
+
+            $order     = new WC_Order( $orderID );
+
+            $error_message = 'Transaction was not successful.';
+            $this->log( $error_message );
+
+            $order->update_status( 'failed', 'Payment failed via PaySubs. Empty POST.' );
+            wp_redirect( $this->get_return_url( $order ) );
+            exit;
         }
     }
 
@@ -539,7 +558,7 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
     public function log( $message )
     {
         if ( 'yes' === $this->settings['loggingmode'] ) {
-            if ( !isset( $this->logger ) && !$this->logger ) {
+            if ( !property_exists( $this, 'logger' ) && !$this->logger ) {
                 $this->logger = new WC_Logger();
             }
             $this->logger->add( 'paysubs', $message );
