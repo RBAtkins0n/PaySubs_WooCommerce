@@ -1,57 +1,73 @@
-*** PaySubs Changelog ***
+= 1.0.3 - December 28, 2018 =
 
-2018.11.30 - version 1.0.2
+* Add auto-update feature
+
+= 1.0.2 - November 30, 2018 =
+
 * Fix empty POST resulting in order pending, default to 'failed'
 * Fix Log function not working
 
-2018.10.12 - version 1.0.1
+= 1.0.1 - October 12, 2018 =
+
 * Fix order key lost in response on thank you page.
 
-2018.06.29 - version 1.0.0
+= 1.0.0 - June 29, 2018 =
+
 * Reversion as PaySubs 1.0.0
 * Check if jQuery.select2 is present before calling
 * Don't check country code
 * Improve and simplify PaySubs workflow 
 * Use Wordpress timezone instead of the server's 
 
-2018.05.19 - version 3.3.5
+= 3.3.5 - May 19, 2018 =
+
 * Add options to make recurring optional
 * VCS -> PaySubs and PayGate
 * Order number in reference
 * Bug fixes for recurring and retried payments
 
-2018.03.26 - version 3.3.3
+= 3.3.3 - March 26, 2018 =
+
 * PaySubs (VCS with recurring) support
 * WooCommerce 3.0 Support
 
-2015.06.24 - version 1.1.6
+= 1.1.6 - June 24, 2015 =
+
 * Fix - Outdated settings link on currency warning message
 * Fix - file hash
 
-2015.06.04 - version 1.1.5
+= 1.1.5 - June 4, 2015 =
+
 * Fix - Order was not creating when custom order number was being used.
 
-2015.05.14 - version 1.1.4
+= 1.1.4 - May 14, 2015 =
+
 * Fix - Failed payment attempts are not able to pay again causing a loop
  
-2015.04.20 - version 1.1.3
+= 1.1.3 - April 20, 2015 =
+
 * Fix - Updates the payments URL to use the new PaySubs URL.
 
-2014.01.13 - version 1.1.2
+= 1.1.2 - January 13, 2014 =
+
 * WC 2.1 Compatibility
 
-2013.04.30 - version 1.1.1
+= 1.1.1 - April 30, 2013 =
+
 * Correct ID for Updater
 
-2013.03.07 - version 1.1
+= 1.1 - March 7, 2013 =
+
 * WooCommerce 2.0 Support
 * Uses new WC API listener
 * Uses new class names
 * Textdomain changed to wc_paysubs for translation
 * Icon filter to change checkout icon
 
-2012.12.05 - version 1.0.1
+= 1.0.1 - December 5, 2012 =
+
 * Updater
 
-2011.10.06 - version 1.0
+= 1.0 - October 6, 2011 =
+
 * First Release
