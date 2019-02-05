@@ -1,5 +1,5 @@
 # PaySubs_WooCommerce
-## DPO PayGate PaySubs (VCS) WooCommerce plugin v1.0.3 for WooCommerce v3.5.1
+## DPO PayGate PaySubs1 (VCS) WooCommerce plugin v1.0.3 for WooCommerce v3.5.1
 
 This is the DPO PayGate PaySubs (VCS) plugin for WooCommerce. Please feel free to contact the DPO PayGate support team at support@paygate.co.za should you require any assistance.
 
