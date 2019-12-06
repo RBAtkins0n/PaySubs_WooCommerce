@@ -13,6 +13,7 @@ Please navigate to the [releases page](https://github.com/PayGate/PaySubs_WooCom
 Please submit pull requests with any tweaks, features or fixes you would like to share.
 
 ## Supported Acquiring Banks
+
 Standard Bank South Africa
 Bidvest Bank
 ABSA Bank
