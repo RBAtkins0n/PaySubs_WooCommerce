@@ -1,6 +1,7 @@
 <?php
+
 /*
- * Copyright (c) 2019 PayGate (Pty) Ltd
+ * Copyright (c) 2020 PayGate (Pty) Ltd
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -15,12 +16,23 @@
  * @category    Payment Gateways
  * @author      PaySubs
  */
+
 class WC_Gateway_PaySubs extends WC_Payment_Gateway
 {
 
     public function __construct()
     {
         global $woocommerce;
+
+        if ( !empty( $_GET ) && isset( $_GET['p1'] ) && isset( $_GET['m_3'] ) ) {
+            //Return from VCS cancel action
+            $order_id = filter_var( $_GET['m_3'], FILTER_SANITIZE_STRING );
+            $order    = wc_get_order( $order_id );
+            $this->add_notice( 'Transaction cancelled by customer', 'error' );
+            $order->add_order_note( 'Response via Redirect: Transaction cancelled by customer', 'woocommerce' );
+            echo '<script>window.top.location.href="' . $order->get_cancel_order_url() . '";</script>';
+            exit;
+        }
 
         $this->id                 = 'paysubs';
         $this->icon               = apply_filters( 'woocommerce_paysubs_icon', $this->plugin_url() . '/assets/images/icon.png' );
@@ -29,7 +41,13 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
         $this->method_title       = "PayGate via PaySubs";
         $this->debug_email        = get_option( 'admin_email' );
         $this->wc_version         = get_option( 'woocommerce_db_version' );
-        $this->url                = 'https://www.vcs.co.za/vvonline/vcspay.aspx';
+        $this->url                = 'https://www.vcs.co.za/vvonline/vcspay.aspx'; //'https://core3.directpay.online/vcs/pay'; Core3
+
+        $this->supports = array(
+            'products',
+            'tokenization',
+            'subscriptions',
+        );
 
         // Load the form fields
         $this->init_form_fields();
@@ -44,7 +62,10 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
         // Hooks
         add_action( 'woocommerce_receipt_paysubs', array( &$this, 'receipt_page' ) );
 
-        $this->notify_url = home_url( '/' );
+        $this->notify_url   = home_url( '/' );
+        $this->approvedUrl  = add_query_arg( 'wc-api', 'WC_Gateway_Paysubs_Redirect', home_url( '/' ) );
+        $this->declinedUrl  = add_query_arg( 'wc-api', 'WC_Gateway_Paysubs_Redirect', home_url( '/' ) );
+        $this->cancelledUrl = '/';
 
         if ( $this->enabled == 'yes' ) {
             add_action( 'init', array( &$this, 'response_handler' ) );
@@ -54,12 +75,91 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
             add_action( 'init', array( $this, 'response_handler' ) );
             $this->callback_url = home_url( '/' );
         } else {
-            add_action( 'woocommerce_api_wc_gateway_paysubs', array( $this, 'response_handler' ) );
-            $this->callback_url = $woocommerce->api_request_url( get_class( $this ) );
-            $this->notify_url   = add_query_arg( 'wc-api', 'WC_Gateway_PaySubs', home_url( '/' ) );
+            add_action( 'woocommerce_api_wc_gateway_paysubs_redirect', array(
+                $this,
+                'check_paysubs_response',
+            ) );
+            add_action( 'woocommerce_api_wc_gateway_paysubs_cancel', array(
+                $this,
+                'check_paysubs_response',
+            ) );
         }
-        add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
+        add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array(
+            $this,
+            'process_admin_options',
+        ) );
         add_action( 'valid-paysubs-response', array( $this, 'successful_request' ) );
+    }
+
+    public function check_paysubs_response()
+    {
+        global $woocommerce;
+        global $wpdb;
+        $transactionStatus = null;
+
+        if ( !empty( $_POST ) ) {
+            if ( !empty( $_POST['Hash'] ) ) {
+                //Check for validity of hash
+                $valid = true;
+            } else {
+                $valid = true;
+            }
+        }
+
+        if ( $valid ) {
+            if ( !empty( $_POST['p3'] ) ) {
+                $p3                = filter_var( $_POST['p3'], FILTER_SANITIZE_STRING );
+                $transactionStatus = substr( $p3, 6, 8 ) === 'APPROVED' ? 1 : 2;
+            }
+            $order_id = filter_var( $_POST['m_3'], FILTER_SANITIZE_STRING );
+            if ( $order_id != '' ) {
+                $order = wc_get_order( $order_id );
+            } else {
+                $order = null;
+            }
+
+            if ( $transactionStatus == 2 && isset( $order ) ) {
+                $this->add_notice( 'Your order was declined by the bank.', 'error' );
+                $order->add_order_note( __( 'Response via Redirect, Transaction declined by bank', 'woocommerce' ) );
+                echo '<script>window.top.location.href="' . $order->get_cancel_order_url() . '";</script>';
+                exit;
+            }
+
+            if ( $transactionStatus == 1 && isset( $order ) ) {
+
+                // Success.
+                $order->payment_complete();
+                $order->add_order_note( __( 'Response via Redirect, Transaction successful', 'woocommerce' ) );
+
+                // Empty the cart.
+                $woocommerce->cart->empty_cart();
+                wp_redirect( $this->get_return_url( $order ) );
+
+                exit;
+            }
+
+        } else {
+            //Not valid hash
+        }
+    }
+
+    /**
+     * Add WooCommerce notice
+     *
+     * @since 1.0.0
+     *
+     */
+    public function add_notice( $message, $notice_type = 'success' )
+    {
+        global $woocommerce;
+        // If function should we use?
+        if ( function_exists( "wc_add_notice" ) ) {
+            // Use the new version of the add_error method.
+            wc_add_notice( $message, $notice_type );
+        } else {
+            // Use the old version.
+            $woocommerce->add_error( $message );
+        }
     }
 
     public function init_form_fields()
@@ -197,7 +297,7 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
                 </td>
             </tr>
         </table><!--/.form-table-->
-        <?php
+		<?php
 } // End admin_options()
 
     /**
@@ -237,7 +337,7 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
                     jQuery(function(){
                         jQuery("body").unblock(
                             {
-                                message: "<img src=\"' . $woocommerce->plugin_url() . '/assets/images/ajax-loader.gif\" alt=\"Redirecting...\" />' . __( 'Thank you for your order. We are now redirecting you to PayGate to make payment.', 'wc_paysubs' ) . '",
+                                message: ' . __( 'Thank you for your order. We are now redirecting you to PayGate to make payment.', 'wc_paysubs' ) . '",
                                 overlayCSS:
                                 {
                                     background: "#fff",
@@ -268,6 +368,7 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
     {
         global $woocommerce;
         $order = wc_get_order( $order_id );
+
         return array(
             'result'   => 'success',
             'redirect' => $order->get_checkout_payment_url( true ),
@@ -316,23 +417,24 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
      * Prepare the fields to be submitted to PayGate.
      *
      * @param object $order
+     *
      * @return array
      */
     public function prepare_form_fields( $order )
     {
         global $woocommerce;
 
-        if(!session_id()) {
+        if ( !session_id() ) {
             session_start();
         }
 
-        $amount       = ( WC()->version < '2.7.0' ) ? $order->order_total : $order->get_total();
-        $currency     = get_option( 'woocommerce_currency' );
-        $order_id     = ( WC()->version < '2.7.0' ) ? $order->id : $order->get_id();
-        $_SESSION['orderID'] = $order_id;
-        $order_number = trim( str_replace( '#', '', $order->get_order_number() ) );
-        $order_email  = ( WC()->version < '2.7.0' ) ? $order->billing_email : $order->get_billing_email();
-        $order_key    = ( WC()->version < '2.7.0' ) ? $order->order_key : $order->get_order_key();
+        $amount                = ( WC()->version < '2.7.0' ) ? $order->order_total : $order->get_total();
+        $currency              = get_option( 'woocommerce_currency' );
+        $order_id              = ( WC()->version < '2.7.0' ) ? $order->id : $order->get_id();
+        $_SESSION['orderID']   = $order_id;
+        $order_number          = trim( str_replace( '#', '', $order->get_order_number() ) );
+        $order_email           = ( WC()->version < '2.7.0' ) ? $order->billing_email : $order->get_billing_email();
+        $order_key             = ( WC()->version < '2.7.0' ) ? $order->order_key : $order->get_order_key();
         $_SESSION['order_key'] = $order_key;
 
         if ( $this->has_previously_failed( $order ) ) {
@@ -346,7 +448,9 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
         }
 
         $mytheme_timezone = get_option( 'timezone_string' );
-        date_default_timezone_set( $mytheme_timezone );
+        if ( $mytheme_timezone != '' ) {
+            date_default_timezone_set( $mytheme_timezone );
+        }
 
         $params = array(
             'p1'           => $this->settings['terminal_id'],
@@ -354,12 +458,13 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
             'p3'           => sprintf( __( '%s purchase, Order # %d', 'woocommerce_gateway_paysubs' ), wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ), $order_number ),
             'p4'           => $amount,
             'p5'           => $currency,
-            'p10'          => htmlspecialchars_decode( urldecode( $order->get_cancel_order_url() ) ),
-            'm_3'          => $order_id,
-            'URLsProvided' => 'Y',
-            'ApprovedURL'  => $this->callback_url,
-            'DeclinedURL'  => $this->callback_url,
+//            'p10'          => htmlspecialchars_decode( urldecode( $order->get_cancel_order_url() ) ),
+            'p10'          => $order->get_cancel_order_url(),
+            'UrlsProvided' => 'Y',
+            'ApprovedUrl'  => $this->approvedUrl,
+            'DeclinedUrl'  => $this->declinedUrl,
             'm_2'          => $order_key,
+            'm_3'          => $order_id,
         );
 
         if ( 'yes' === $this->settings['recurring'] ) {
@@ -367,8 +472,10 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
             $params['p7'] = $this->settings['frequency']; // interval
         }
 
-        $hash           = $this->getPaySubsHash( $params );
-        $params['hash'] = $hash;
+        if ( $this->settings['md5'] == 'yes' ) {
+            $hash           = $this->getPaySubsHash( $params );
+            $params['hash'] = $hash;
+        }
 
         return $params;
     }
@@ -377,26 +484,23 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
      * Calculate the MD5 hash for the order form fields
      *
      * @param array $params
+     *
      * @return string
      */
     public function getPaySubsHash( $params )
     {
+        $hashParams = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'NextOccurDate', 'Budget', 'CardholderEmail', 'm_1',
+            'm_2', 'm_3', 'm_4', 'm_5', 'm_6', 'm_7', 'm_8', 'm_9', 'm_10', 'CustomerID', 'RecurReference', 'MerchantToken'];
         if ( $this->settings['md5'] == 'yes' ) {
-            $hash = $params['p1'];
-            $hash .= $params['p2'];
-            $hash .= $params['p3'];
-            $hash .= $params['p4'];
-            $hash .= $params['p5'];
-            if ( 'yes' === $this->settings['recurring'] ) {
-                $hash .= $params['p6'];
-                $hash .= $params['p7'];
+            $hashString = '';
+            foreach ( $hashParams as $hashParam ) {
+                $hashString .= isset( $params[$hashParam] ) ? $params[$hashParam] : '';
             }
-            $hash .= $params['p10'];
-            $hash .= $params['m_2'];
-            $hash .= $params['m_3'] . $this->settings['md5key'];
-            $hash = md5( $hash );
-            return $hash;
+            $hashString .= $this->settings['md5key'];
+
+            return md5( $hashString );
         }
+
         return "";
     }
 
@@ -404,6 +508,7 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
      * Check if order has previously failed
      *
      * @param object $order
+     *
      * @return bool
      */
     public function has_previously_failed( $order )
@@ -411,6 +516,7 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
         if ( 'failed' === $order->get_status() ) {
             return true;
         }
+
         return false;
     }
 
@@ -433,13 +539,13 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
                 do_action( 'valid-paysubs-response', sanitize_text_field( $_POST['m_3'] ) );
             }
         } else {
-            if(!session_id()) {
+            if ( !session_id() ) {
                 session_start();
             }
             // check transaction status
             $orderID = $_SESSION['orderID'];
 
-            $order     = new WC_Order( $orderID );
+            $order = new WC_Order( $orderID );
 
             $error_message = 'Transaction was not successful.';
             $this->log( $error_message );
@@ -454,6 +560,7 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
      * Check PaySubs response validity.
      *
      * @param array $data
+     *
      * @since 1.0.0
      */
     public function perform_response_callback( $data )
@@ -518,8 +625,7 @@ class WC_Gateway_PaySubs extends WC_Payment_Gateway
             if ( !$this->amounts_equal( $data['p6'], $order->get_total() ) ) {
                 $has_error     = true;
                 $error_message = 'Order totals don\'t match.';
-            }
-            // Check session ID
+            } // Check session ID
             elseif ( $data['m_2'] != $order->get_order_key() ) {
                 $has_error     = true;
                 $error_message = 'Order key mismatch.';
