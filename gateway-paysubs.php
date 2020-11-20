@@ -3,16 +3,16 @@
  * Plugin Name: PayGate PaySubs plugin for WooCommerce
  * Plugin URI: https://github.com/PayGate/PaySubs_WooCommerce
  * Description: Accept payments for WooCommerce using PayGate's PaySubs service
- * Version: 1.0.4
+ * Version: 1.0.5
  * Author: PayGate (Pty) Ltd
  * Author URI: https://www.paygate.co.za/
  * Developer: App Inlet (Pty) Ltd
  * Developer URI: https://www.appinlet.com/
  *
  * WC requires at least: 3.0
- * WC tested up to: 3.8
+ * WC tested up to: 4.7
  *
- * Copyright: © 2019 PayGate (Pty) Ltd.
+ * Copyright: © 2020 PayGate (Pty) Ltd.
  * License: GNU General Public License v3.0
  * License URI: http://www.gnu.org/licenses/gpl-3.0.html
  */
@@ -48,7 +48,7 @@ function woocommerce_paysubs_init()
             'homepage'           => 'https://github.com/PayGate/PaySubs_WooCommerce',
             'sslverify'          => true,
             'requires'           => '4.0',
-            'tested'             => '5.3.2',
+            'tested'             => '5.5.3',
             'readme'             => 'README.md',
             'access_token'       => '',
         ];
